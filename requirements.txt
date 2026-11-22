@@ -7,3 +7,5 @@ pillow>=10.4
 requests>=2.32
 joblib>=1.4
 ddgs>=9.0
+pyarrow>=15.0
+python-docx>=1.1
