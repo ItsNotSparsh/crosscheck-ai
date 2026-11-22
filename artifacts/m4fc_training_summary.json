@@ -1,0 +1,7 @@
+{
+  "usable_images": 2772,
+  "train": 1641,
+  "dev": 273,
+  "device": "cuda",
+  "artifact": "C:\\Users\\spars\\Desktop\\AAI_Project\\artifacts\\m4fc_dual_classifier.joblib"
+}

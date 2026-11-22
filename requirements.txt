@@ -1,0 +1,9 @@
+torch>=2.4
+transformers>=4.45,<5
+Flask>=3.0,<4
+pandas>=2.2
+scikit-learn>=1.5
+pillow>=10.4
+requests>=2.32
+joblib>=1.4
+ddgs>=9.0

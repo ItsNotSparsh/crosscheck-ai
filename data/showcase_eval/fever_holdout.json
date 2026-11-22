@@ -1,0 +1,227 @@
+[
+  {
+    "id":127606,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Salt River Valley is south of the Phoenix metropolitan area."
+  },
+  {
+    "id":65945,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Kelly Preston starred in the Titanic movie."
+  },
+  {
+    "id":213931,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Gray Matter Interactive Studios, Inc. was acquired by Activision in January 20, 2002."
+  },
+  {
+    "id":126359,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Stanley Williams was an inmate in Los Angeles, California."
+  },
+  {
+    "id":115172,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Warcraft was an independent film and self-published by Blizzard."
+  },
+  {
+    "id":88997,
+    "label":"NOT ENOUGH INFO",
+    "claim":"The Indian Institute of Management Bangalore offers a television program."
+  },
+  {
+    "id":136505,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Toy Story 2 was animated using a Mac computer."
+  },
+  {
+    "id":37827,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Doxycycline may cause teeth to augment color."
+  },
+  {
+    "id":215505,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Weekly Idol is hosted by a singer."
+  },
+  {
+    "id":139370,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Stanley Williams was a police officer in California."
+  },
+  {
+    "id":91858,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Kellogg's sells products."
+  },
+  {
+    "id":25406,
+    "label":"NOT ENOUGH INFO",
+    "claim":"The Paper stars a cat."
+  },
+  {
+    "id":119387,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Birmingham is a township."
+  },
+  {
+    "id":138995,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Google Search is the product of an American multinational manufacturing company."
+  },
+  {
+    "id":163804,
+    "label":"NOT ENOUGH INFO",
+    "claim":"Ukrainian Soviet Socialist Republic was in the show Scandal."
+  },
+  {
+    "id":206984,
+    "label":"REFUTES",
+    "claim":"Punch-Drunk Love was distributed by Revolution Studios."
+  },
+  {
+    "id":103051,
+    "label":"REFUTES",
+    "claim":"Floyd Mayweather Jr. is incapable of being a professional boxer."
+  },
+  {
+    "id":12,
+    "label":"REFUTES",
+    "claim":"Carlos Santana disbanded Santana in 1965."
+  },
+  {
+    "id":80186,
+    "label":"REFUTES",
+    "claim":"Keith Stanfield died on August 12, 1991."
+  },
+  {
+    "id":27869,
+    "label":"REFUTES",
+    "claim":"Mount Rushmore was created by sculptor Tom Brady."
+  },
+  {
+    "id":41703,
+    "label":"REFUTES",
+    "claim":"The Gifted is Swedish."
+  },
+  {
+    "id":201375,
+    "label":"REFUTES",
+    "claim":"Varsity Blues (film) is incapable of being filmed."
+  },
+  {
+    "id":119519,
+    "label":"REFUTES",
+    "claim":"Scotty Moore was American and Irish."
+  },
+  {
+    "id":43554,
+    "label":"REFUTES",
+    "claim":"The Maze Runner is a sports competition."
+  },
+  {
+    "id":209095,
+    "label":"REFUTES",
+    "claim":"Stadium Arcadium was released after 2009."
+  },
+  {
+    "id":215484,
+    "label":"REFUTES",
+    "claim":"Only dramatic performers host Weekly Idol."
+  },
+  {
+    "id":198227,
+    "label":"REFUTES",
+    "claim":"Saturn is only an asteroid."
+  },
+  {
+    "id":154423,
+    "label":"REFUTES",
+    "claim":"Bessie Smith was a heavy metal singer."
+  },
+  {
+    "id":201114,
+    "label":"REFUTES",
+    "claim":"Marcus Bentley is incapable of being a voice-over artist."
+  },
+  {
+    "id":7041,
+    "label":"REFUTES",
+    "claim":"Kareem Abdul-Jabbar is not ranked 3rd all-time in blocks."
+  },
+  {
+    "id":174974,
+    "label":"SUPPORTS",
+    "claim":"The Man in the Iron Mask was directed by Randall Wallace."
+  },
+  {
+    "id":116113,
+    "label":"SUPPORTS",
+    "claim":"Lou Gehrig was voted a great first baseman."
+  },
+  {
+    "id":138814,
+    "label":"SUPPORTS",
+    "claim":"The highest point of the Hindu Kush is Tirich Mir in Khyber Pakhtunkhwa."
+  },
+  {
+    "id":53676,
+    "label":"SUPPORTS",
+    "claim":"Birthday Song (2 Chainz song) was produced by a producer."
+  },
+  {
+    "id":10947,
+    "label":"SUPPORTS",
+    "claim":"Fist of Legend is a remake of a film."
+  },
+  {
+    "id":201793,
+    "label":"SUPPORTS",
+    "claim":"Live Through This is an album."
+  },
+  {
+    "id":119205,
+    "label":"SUPPORTS",
+    "claim":"The Maze Runner had a budget of $34 million for cast and crew."
+  },
+  {
+    "id":109728,
+    "label":"SUPPORTS",
+    "claim":"Two and a Half Men starred Angus T. Jones in 2005."
+  },
+  {
+    "id":15425,
+    "label":"SUPPORTS",
+    "claim":"Kendall Jenner is a person."
+  },
+  {
+    "id":33700,
+    "label":"SUPPORTS",
+    "claim":"Jackie (2016 film) was directed by a Chilean filmmaker name Pablo Larrain."
+  },
+  {
+    "id":136131,
+    "label":"SUPPORTS",
+    "claim":"The Times has been printed since 1785."
+  },
+  {
+    "id":74205,
+    "label":"SUPPORTS",
+    "claim":"Philomena is a motion picture."
+  },
+  {
+    "id":11398,
+    "label":"SUPPORTS",
+    "claim":"Henry II of France died in a jousting tournament."
+  },
+  {
+    "id":53263,
+    "label":"SUPPORTS",
+    "claim":"Henry VIII (TV serial) features a film and television actor in a leading role."
+  },
+  {
+    "id":87849,
+    "label":"SUPPORTS",
+    "claim":"The State of Palestine lays claim to a region on the eastern coast of the Mediterranean Sea."
+  }
+]

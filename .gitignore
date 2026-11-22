@@ -1,0 +1,41 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+
+# Temporary / Scratch workspace artifacts
+tmp/
+.chart-data-*/
+rollback/
+
+# Large visual model weights downloaded via download_visual_models.py (over 1 GB, exceed GitHub 100MB limit)
+artifacts/blip-itm/
+artifacts/vilt-vqa/
+# Note: artifacts/*.joblib and artifacts/*.json are kept so your collaborator can run app.py immediately!
+
+# Large datasets & downloaded images (exceed GitHub 100MB file limit / multi-GB archives)
+data/simplewiki.sqlite
+data/images/
+data/m4fc/images/
+# Optional: uncomment below if you do not want to track the 70MB raw parquet file
+# data/fakeddit_train.parquet
+
+# Environment variables & local secrets
+.env
+.env.local
+*.log
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

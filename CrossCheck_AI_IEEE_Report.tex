@@ -1,0 +1,198 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb}
+\usepackage{url}
+\usepackage{graphicx}
+\begin{document}
+
+\title{Multimodal Fake News Screening with Vision-Language Models}
+
+\author{
+\IEEEauthorblockN{Prajjwal Sharma}
+\IEEEauthorblockA{Applications of AI Project\\Student ID: S24CSEU1391}
+\and
+\IEEEauthorblockN{Vikalp Chaudhary}
+\IEEEauthorblockA{Applications of AI Project\\Student ID: S24CSEU0148}
+\and
+\IEEEauthorblockN{Sparsh Kumar}
+\IEEEauthorblockA{Applications of AI Project\\Student ID: S24CSEU0428}
+\and
+\IEEEauthorblockN{Ajitej Singh}
+\IEEEauthorblockA{Applications of AI Project\\Student ID: S24CSEU1413}
+}
+
+\maketitle
+
+\begin{abstract}
+CrossCheck AI is a student decision-support prototype that screens a social-media claim together with its associated image. The active application uses the pretrained CLIP ViT-B/32 vision-language model to encode text and image, followed by a lightweight classifier trained on paired Fakeddit examples. It returns Fake, Real, or Possibly misleading / uncertain, reports a text-image similarity cue, can retrieve public links for follow-up, and explains the visible signals. On the held-out Fakeddit subset, the active model achieved 84.6 percent accuracy and 0.799 macro-F1. A separate experiment trained claim-veracity and image-consistency heads using M4FC annotations. It failed its development check, detecting none of the Real examples and only 8 percent of consistent image-claim pairs, so it was not activated. The application is an educational screening aid; its output is not proof of factual truth.
+\end{abstract}
+
+\begin{IEEEkeywords}
+multimodal misinformation, fake news detection, vision-language models, CLIP, fact checking
+\end{IEEEkeywords}
+
+\section{Introduction}
+\subsection{Problem}
+A social-media post may pair a plausible claim with a genuine but unrelated, old, manipulated, or misleadingly captioned image. Text-only classification can miss the relationship between the wording and the visual context. Image-only classification, in turn, cannot determine what assertion the post makes. This project therefore treats a post as a text-image pair and surfaces signals for a person to review.
+
+\subsection{Project Aim and Objectives}
+The aim is to develop an explainable multimodal screening application that accepts a claim and associated image, predicts Fake, Real, or Possibly misleading / uncertain, and helps users inspect cross-modal cues and external evidence. The final implementation focuses on four course objectives. O4 is to form a calibrated three-way classifier; O5 is to analyze text-image consistency as a predictive cue; O6 is to retrieve external evidence for cases that cannot be resolved from the image alone; and O7 is to explain model signals and retrieved leads to the user. Evaluation uses held-out metrics, confusion analysis, and a documented failure study. The similarity cue is implemented, but no ablation establishes its independent predictive contribution. Retrieval is an assistive feature and does not decide the classifier label.
+
+The application is designed for educational triage and human review, not autonomous fact adjudication. A correct image-caption match does not prove that the claim is true, while an unrelated image does not by itself prove that every sentence in the post is false.
+
+\section{Background and Related Work}
+Text-only research provides a useful baseline perspective: BERT introduced deeply contextualized Transformer representations \cite{bert}, while the LIAR corpus supports short-claim classification using fact-check labels and source links \cite{liar}. Multimodal methods combine linguistic and visual information in different ways. SpotFake combines BERT text features with pretrained visual features \cite{spotfake}; SAFE explicitly models the relationship between article text and image \cite{safe}; and MVAE learns a shared multimodal representation with a variational autoencoder \cite{mvae}. These methods motivate feature fusion and mismatch cues, but their results depend on their datasets and do not make image-text agreement a proof of truth.
+
+Fakeddit is a multimodal benchmark containing social-media text, images, metadata, and fine-grained labels; it supplies paired examples for the active classifier \cite{fakeddit,fakedditmirror}. CLIP learns transferable image and language representations from large-scale image-text pairs and supports efficient downstream classification without fine-tuning its full encoder \cite{clip}. Its similarity score reflects semantic compatibility and does not verify a claim. FakeNewsNet additionally illustrates the value of social and spatiotemporal context that is not available in the active model's text-image input \cite{fakenewsnet}. Surveys of fake-news and multimodal detection describe persistent issues in label quality, domain transfer, fusion, and explainability \cite{survey_fake,survey_multimodal}. The present application therefore reports its dataset scope and failure cases instead of treating benchmark performance as universal.
+
+M4FC is a real-world multimodal fact-checking dataset with claim verdicts and image-context annotations \cite{m4fc}. VERITE provides truthful, out-of-context, and miscaptioned pairs and was designed to examine unimodal bias in multimodal misinformation classification \cite{verite}. These datasets use different label definitions and class distributions; performance across them is not directly comparable.
+
+The project proposal considered a text-only Transformer baseline, an image-informed baseline where data supported fair comparison, and a fused multimodal model. The completed application implements the fused CLIP model only. It does not claim a measured improvement over BERT or another unimodal baseline; building those controlled comparisons remains future work. This distinction is important because a larger input model is not automatically more reliable.
+
+\section{System Overview}
+\subsection{Input and Preprocessing}
+The user submits one post or claim and one associated image through a Flask web interface. Supported image formats are JPG, PNG, and WEBP. The server validates the upload, decodes it with Pillow, converts it to RGB, and rejects unreadable or unusually large files. Images are processed locally for inference and are not saved by the app.
+
+\subsection{Vision-Language Encoding}
+The active model uses the pretrained openai/clip-vit-base-patch32 dual encoder. The CLIP processor tokenizes the claim and resizes and normalizes the image. The model produces text and image embeddings, which are L2-normalized. For text embedding $e_t$ and image embedding $e_i$, semantic similarity is
+\begin{equation}
+s=e_t^{\mathsf{T}}e_i .
+\end{equation}
+The similarity score indicates semantic alignment only. It does not establish the image's source, date, authenticity, or whether the claim is objectively true.
+
+\subsection{Feature Fusion and Classification}
+The active classifier receives the fused feature vector
+\begin{equation}
+z=[e_t; e_i; e_t\odot e_i; s],
+\end{equation}
+where $\odot$ denotes element-wise multiplication and semicolons denote concatenation. A class-balanced logistic regression classifier is trained on frozen CLIP features. Sigmoid calibration is applied to classifier outputs, and a confidence threshold is selected using a validation slice of training data. A prediction below the selected threshold is routed to Possibly misleading / uncertain. The complete CLIP encoder remains frozen to keep training practical on a laptop GPU.
+
+The current application also has a conservative disagreement gate. If the classifier's top class is Fake with confidence below 65 percent while text-image similarity is at least 0.28, the final output abstains to Possibly misleading / uncertain. This rule was added after a correctly matched cat-image example received only a 56 percent Fake score. These thresholds are heuristic and have not been selected through a separate validation study; similarity alone never changes a prediction to Real.
+
+This gate is separate from the validation-selected 37.5 percent confidence threshold. The evaluation table reports the held-out classifier metrics and does not assert that the later heuristic gate improved test performance. In particular, the rule can reduce some weak Fake calls, but it is not a factuality detector and should not be interpreted as a separately validated model component.
+
+\subsection{Application and Evidence Leads}
+Flask serves the application, while HTML, CSS, and JavaScript provide the interface. The result area displays three class scores, the top model signal, and text-image similarity with explanatory caveats. The selected image opens in a full-screen preview when clicked. Optional web search surfaces links and snippets as leads for human inspection; snippets do not replace the active classifier prediction. Search-provider errors do not prevent model analysis. The target development laptop has an NVIDIA RTX 4050 Laptop GPU with 6 GB VRAM; inference uses CUDA when available.
+
+The evidence path is intentionally separate from the classifier path. The application can retrieve search results and compare their text with the claim as an auxiliary cue; provider errors, missing results, or inconclusive snippets are reported as such and do not overwrite the model's three-way output. The interface labels these results as leads rather than verified evidence. The displayed classifier scores and cosine similarity are observable signals, not causal explanations of the model's internal decision.
+
+\section{Dataset and Label Mapping}
+\subsection{Fakeddit: Active Model}
+The active model uses the AdoCleanCode Fakeddit Hugging Face parquet mirror. The source file used in this project is approximately 73.9 MB and includes train/test indicators, post text, labels, and image URLs. The complete image archive is more than 100 GB, so a limited sample was downloaded from the URLs. Missing or unavailable images were excluded. The resulting working subset contains 5,686 paired training examples and 1,432 paired held-out test examples, retaining the source dataset's general-train and general-test partitions.
+
+The six-way Fakeddit labels are mapped by project policy as follows: label 0 (True) maps to Real; label 2 (False Connection) and label 4 (Manipulated Content) map to Fake; label 1 (Satire), label 3 (Imposter), and label 5 (Misleading Content) map to Possibly misleading / uncertain. This mapping is task-specific and does not create a universal definition of truth. Fakeddit is Reddit-derived, so labels may reflect platform and collection conventions.
+
+The processed subset retains the source train and test flags and excludes records whose associated image was missing or unavailable. The split prevents the active classifier's reported test metrics from being chosen through test-set threshold tuning: the 37.5 percent threshold was selected on a slice of the training partition. Exact duplicate and event-disjoint audits were not established for this sample, which limits claims about generalization to unseen sources or events.
+
+\subsection{M4FC: Separate-Target Experiment}
+To investigate separate factual-veracity and image-consistency supervision, the official M4FC annotation file was downloaded. M4FC contains 4,982 annotated images paired with claims. The English-claim filter yielded 3,175 manifest entries; 2,772 downloaded images passed image validation and were usable. The fact-veracity target was mapped from fact-checker verdicts to true, false, or uncertain. For the image-consistency head, records labeled true were treated as consistent, false (out-of-context) records as mismatched, and other categories as unknown and excluded from the binary consistency fit. Both heads used frozen CLIP embeddings and class-balanced logistic regression, with official train and development partitions kept separate.
+
+This mapping is experimental rather than a definitive annotation scheme. The number of True and consistent examples is small, and the verdict distribution is strongly imbalanced. M4FC releases annotations and source image URLs; image rights may differ from the annotation license \cite{m4fc_repo}.
+
+\section{Training and Reproducibility}
+The active Fakeddit pipeline prepares paired examples, extracts CLIP features in batches, fits a class-balanced logistic regression model, calibrates probabilities, selects an abstention threshold, and saves the classifier and evaluation metrics in the artifacts directory. The following commands reproduce the project workflow from the project root:
+\begin{verbatim}
+python prepare_data.py data/fakeddit_train.parquet
+  data/sample_train.tsv data/images --split train --limit 6000
+python prepare_data.py data/fakeddit_train.parquet
+  data/sample_test.tsv data/images --split test --limit 1500
+python train.py --train data/sample_train.tsv
+  --test data/sample_test.tsv --images data/images
+  --labels 6-way --limit 6000 --batch-size 16
+python app.py
+\end{verbatim}
+The local application is then available at http://127.0.0.1:8501. The CLIP model is downloaded into the local Hugging Face cache. The prepared Fakeddit subset and active classifier are included in the workspace. Separate scripts, \texttt{prepare\_m4fc.py} and \texttt{train\_m4fc.py}, prepare the M4FC manifest, retrieve image URLs, and train the experimental heads. The M4FC artifact is saved separately and is not loaded by the active application.
+
+\subsection{Coverage of the Selected Objectives}
+O4 is implemented by mapping Fakeddit's six labels to the project's Fake, Real, and Possibly misleading / uncertain classes and routing low-confidence results to uncertainty. O5 is addressed through the CLIP cosine feature and the image-alignment display, but the project has not run a similarity-feature ablation or established that similarity independently improves predictions. O6 is implemented as optional public-source retrieval and auxiliary text-evidence comparison; retrieved snippets are not ground truth, and retrieval availability depends on external providers. O7 is addressed by showing class scores, the top classifier signal, the similarity value, evidence links when enabled, and explicit caveats. These are transparent diagnostic cues, not faithful causal explanations.
+
+\section{Evaluation}
+\subsection{Active Fakeddit Model}
+The active model was evaluated on 1,432 held-out paired examples. Table~\ref{tab:fakeddit} reports observed test metrics. Accuracy is 84.6 percent and macro-F1 is 0.799. The confidence threshold was 37.5 percent and was selected using a training-only validation slice, not held-out test labels.
+
+\begin{table}[t]
+\caption{Active Fakeddit Model: Held-Out Test Results}
+\label{tab:fakeddit}
+\centering
+\begin{tabular}{lrrrr}
+\hline
+Class & Precision & Recall & F1 & Support\\
+\hline
+Fake & 0.871 & 0.892 & 0.882 & 706\\
+Real & 0.844 & 0.850 & 0.847 & 566\\
+Uncertain & 0.719 & 0.625 & 0.669 & 160\\
+\hline
+Overall accuracy & \multicolumn{4}{c}{0.846}\\
+Macro-F1 & \multicolumn{4}{c}{0.799}\\
+\hline
+\end{tabular}
+\end{table}
+
+Fake and Real scores are stronger than the uncertain-class scores in this run. The uncertain class has precision 0.719, recall 0.625, and F1 0.669, so uncertainty should be read as a cautious system output rather than a ground-truth statement that content is partly true. These results describe the held-out Fakeddit subset and do not estimate performance on current real-world news.
+
+The held-out confusion matrix in Table~\ref{tab:confusion} reports counts with rows as the true mapped class and columns as the predicted mapped class. It shows both the frequent Fake/Real confusions and the weaker uncertain-class recall. These errors are consistent with a three-way task built from distant-supervision labels and a project-specific mapping.
+
+\begin{table}[t]
+\caption{Fakeddit Held-Out Confusion Matrix (Rows: True; Columns: Predicted)}
+\label{tab:confusion}
+\centering
+\begin{tabular}{lrrr}
+\hline
+True class & Fake & Real & Uncertain\\
+\hline
+Fake & 630 & 60 & 16\\
+Real & 62 & 481 & 23\\
+Uncertain & 31 & 29 & 100\\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{M4FC Experiment: Failed Development Check}
+The M4FC two-head experiment did not meet the project acceptance criterion and was not integrated into the running application. On the development partition, the veracity head evaluated 260 false and only 13 true examples. It predicted every development example as false. Its accuracy was about 95 percent because of class imbalance, but Real recall was 0 and macro-F1 was 0.49.
+
+The consistency head evaluated 195 mismatched and only 13 consistent examples. It detected consistent examples with recall 0.08 and achieved macro-F1 0.56. These outcomes show why accuracy alone is inadequate: a majority-class prediction can score highly while failing on the minority class the system needs to recognize.
+
+\begin{table}[t]
+\caption{M4FC Development Results for the Experimental Heads}
+\label{tab:m4fc}
+\centering
+\begin{tabular}{lrrr}
+\hline
+Task & Minority recall & Macro-F1 & Minority support\\
+\hline
+Claim veracity (Real) & 0.00 & 0.49 & 13\\
+Image consistency (consistent) & 0.08 & 0.56 & 13\\
+\hline
+\end{tabular}
+\end{table}
+
+The M4FC artifact remains separate for reproducibility. The active app continues to use the Fakeddit-trained classifier. These development metrics are not directly comparable with the Fakeddit held-out metrics because their data, labels, partitions, and class distributions differ.
+
+\section{Limitations and Responsible Use}
+Fakeddit is Reddit-derived and may contain noisy, dated, or platform-specific labels. The model learns dataset patterns and its class score is not the probability that a real-world claim is true. CLIP similarity indicates semantic compatibility; it cannot determine image provenance, recency, manipulation, or whether the visual is from the claimed event. A matching image can still be old or miscaptioned, and a valid claim can use an illustrative image. Fakeddit's distant-supervision labels and this project's label grouping mean that the Fake category is not a clean fact-check verdict for every example.
+
+External search snippets can be incomplete, irrelevant, or provider-dependent. Users should open and evaluate primary or authoritative sources. The M4FC experiment is limited by severe minority-class scarcity and the project's mapping of verdict subtypes to image consistency. The current project has not completed a text-only BERT or image-only baseline, a controlled modality ablation, source/event-disjoint evaluation, or a separate validation study for the heuristic disagreement gate. The prototype is intended for educational screening and human review, not punitive moderation, high-stakes decisions, or labeling individuals.
+
+\section{Conclusion and Future Work}
+CrossCheck AI demonstrates a working multimodal screening workflow based on a frozen pretrained vision-language encoder, a lightweight classifier, an uncertainty route, visible similarity cues, optional source leads, and user-facing explanations. The active Fakeddit model achieved 0.799 macro-F1 on its held-out subset, but these measurements are dataset-specific and are not a comparison against unimodal baselines. The separate M4FC experiment attempted to learn claim veracity and image consistency; it failed on minority Real and consistent examples and was therefore kept out of the application. Future work requires more balanced, independently labeled examples with separate factual-veracity and image-consistency targets, fair text-only and image-only comparisons, source/event-disjoint evaluation, and per-class acceptance criteria before activation.
+
+\begin{thebibliography}{00}
+\bibitem{bert} J. Devlin, M.-W. Chang, K. Lee, and K. Toutanova, ``BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding,'' in \emph{Proc. NAACL-HLT}, 2019, pp. 4171--4186, doi: 10.18653/v1/N19-1423.
+\bibitem{fakeddit} K. Nakamura, S. Levy, and W. Y. Wang, ``r/Fakeddit: A New Multimodal Benchmark Dataset for Fine-grained Fake News Detection,'' in \emph{Proc. LREC}, 2020, pp. 6149--6157. [Online]. Available: \url{https://aclanthology.org/2020.lrec-1.755/}
+\bibitem{safe} X. Zhou, J. Wu, and R. Zafarani, ``SAFE: Similarity-Aware Multi-Modal Fake News Detection,'' in \emph{Advances in Knowledge Discovery and Data Mining}, PAKDD 2020, Part II, vol. 12085, 2020, pp. 354--367, doi: 10.1007/978-3-030-47436-2\_27.
+\bibitem{spotfake} S. Singhal, R. R. Shah, T. Chakraborty, P. Kumaraguru, and S. Satoh, ``SpotFake: A Multi-modal Framework for Fake News Detection,'' in \emph{Proc. IEEE BigMM}, 2019, doi: 10.1109/BigMM.2019.00-44.
+\bibitem{clip} A. Radford \emph{et al.}, ``Learning Transferable Visual Models From Natural Language Supervision,'' in \emph{Proc. ICML}, PMLR, vol. 139, 2021, pp. 8748--8763.
+\bibitem{liar} W. Y. Wang, ``Liar, Liar Pants on Fire: A New Benchmark Dataset for Fake News Detection,'' in \emph{Proc. ACL}, vol. 2, 2017, pp. 422--426, doi: 10.18653/v1/P17-2067.
+\bibitem{fakenewsnet} K. Shu, D. Mahudeswaran, S. Wang, D. Lee, and H. Liu, ``FakeNewsNet: A Data Repository with News Content, Social Context, and Spatiotemporal Information for Studying Fake News on Social Media,'' \emph{Big Data}, vol. 8, no. 3, pp. 171--188, 2020, doi: 10.1089/big.2020.0062.
+\bibitem{mvae} D. Khattar, J. S. Goud, M. Gupta, and V. Varma, ``MVAE: Multimodal Variational Autoencoder for Fake News Detection,'' in \emph{Proc. The World Wide Web Conference (WWW)}, 2019, pp. 2915--2921, doi: 10.1145/3308558.3313552.
+\bibitem{survey_multimodal} C. Comito, L. Caroprese, and E. Zumpano, ``Multimodal Fake News Detection on Social Media: A Survey of Deep Learning Techniques,'' \emph{Social Network Analysis and Mining}, vol. 13, Art. no. 101, 2023, doi: 10.1007/s13278-023-01104-w.
+\bibitem{survey_fake} X. Zhou and R. Zafarani, ``A Survey of Fake News: Fundamental Theories, Detection Methods, and Opportunities,'' \emph{ACM Computing Surveys}, vol. 53, no. 5, Art. no. 109, 2020, doi: 10.1145/3395046.
+\bibitem{fakedditmirror} AdoCleanCode, ``Fakeddit Dataset Mirror.'' [Online]. Available: \url{https://huggingface.co/datasets/AdoCleanCode/Fakeddit}
+\bibitem{m4fc} J. Geng, J. Tonglet, and I. Gurevych, ``M4FC: A Multimodal, Multilingual, Multicultural, Multitask Real-World Fact-Checking Dataset,'' arXiv:2510.23508, 2025.
+\bibitem{verite} S.-I. Papadopoulos \emph{et al.}, ``VERITE: A Robust Benchmark for Multimodal Misinformation Detection Accounting for Unimodal Bias,'' \emph{International Journal of Multimedia Information Retrieval}, vol. 13, no. 1, 2024.
+\bibitem{m4fc_repo} UKP Lab, ``M4FC Dataset and Code Repository.'' [Online]. Available: \url{https://github.com/UKPLab/M4FC}
+\bibitem{verite_repo} S. Papadopoulos, ``VERITE Official Repository.'' [Online]. Available: \url{https://github.com/stevejpapad/image-text-verification}
+\bibitem{clipcard} OpenAI, ``CLIP ViT-B/32 Model Card.'' [Online]. Available: \url{https://huggingface.co/openai/clip-vit-base-patch32}
+\end{thebibliography}
+\end{document}

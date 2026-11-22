@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0b0d13">
+  <title>CrossCheck AI — Multimodal Claim Screening</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="ambient ambient-a"></div><div class="ambient ambient-b"></div>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="CrossCheck AI home"><span class="brand-mark">✳</span><span>crosscheck<span class="brand-ai">.ai</span></span></a>
+    <div class="top-meta"><span class="live-dot"></span><span>VISION + LANGUAGE</span></div>
+    <a class="about-link" href="#about">How it works <span>↗</span></a>
+  </header>
+
+  <main class="shell">
+    <section class="intro">
+      <div class="eyebrow"><span class="eyebrow-line"></span> MULTIMODAL MISINFORMATION SCREENING</div>
+      <h1>Look closer.<br><span>Check the signal.</span></h1>
+      <p class="intro-copy">Check a public claim against sources, or see whether a simple caption describes what is visible in a photo.</p>
+      <div class="intro-tags"><span><i>01</i> Claim context</span><span><i>02</i> Image alignment</span><span><i>03</i> Calibrated signal</span></div>
+    </section>
+
+    <section class="workspace" aria-label="Claim analysis workspace">
+      <form id="analyze-form" class="input-panel">
+        <div class="panel-heading"><div><span class="section-kicker">NEW ANALYSIS</span><h2>Bring the post into focus</h2></div><span class="step-count">01 <b>/</b> 02</span></div>
+        <label class="field-label" for="check-mode">WHAT TO CHECK</label>
+        <select id="check-mode" name="mode"><option value="auto">Automatic</option><option value="news">Factual claim · sources</option><option value="photo">Visible caption · photo required</option><option value="dataset">Original Fakeddit classifier · photo required</option></select>
+        <label class="field-label" for="claim-text">POST OR CLAIM <span>Required</span></label>
+        <textarea id="claim-text" name="text" maxlength="1000" placeholder="Paste the headline, caption, or claim you want to examine…" required></textarea>
+        <div class="text-foot"><span>Keep the original wording for a clearer signal.</span><span id="char-count">0 / 1000</span></div>
+
+        <div class="upload-title"><label class="field-label" for="image-file">ASSOCIATED IMAGE <span id="image-requirement">Optional for factual claims</span></label><span class="formats">JPG · PNG · WEBP</span></div>
+        <label class="dropzone" id="dropzone" for="image-file">
+          <input id="image-file" name="image" type="file" accept="image/png,image/jpeg,image/webp">
+          <span class="drop-icon">↥</span>
+          <span class="drop-main" id="drop-main">Drop an image here or <b>browse files</b></span>
+          <span class="drop-sub" id="drop-sub">A photo attached to the claim · up to 12 MB</span>
+          <img id="image-preview" alt="Selected image preview" hidden>
+          <button id="remove-image" class="remove-image" type="button" aria-label="Remove selected image" hidden>×</button>
+        </label>
+
+        <label class="evidence-option"><input id="evidence-toggle" type="checkbox" name="evidence"><span class="fake-check">✓</span><span><b>Find extra reading</b><small>Sources used for the factual result appear automatically.</small></span><span class="option-arrow">↗</span></label>
+        <button class="analyze-button" id="analyze-button" type="submit"><span class="button-label">Analyze claim</span><span class="button-arrow">→</span></button>
+        <p class="form-note"><span class="lock-icon">◇</span> Images are processed locally by this project and are not saved.</p>
+      </form>
+
+      <aside class="side-column">
+        <div class="result-panel" id="result-panel" aria-live="polite">
+          <div class="panel-heading result-heading"><div><span class="section-kicker">ANALYSIS OUTPUT</span><h2 id="result-title">Your signal will appear here</h2></div><span class="result-orbit">✳</span></div>
+          <div class="empty-state" id="empty-state"><div class="empty-graphic"><span class="orbit-one"></span><span class="orbit-two"></span><span class="orbit-core">✳</span></div><p>Enter a claim to check its sources, or add a photo to check a visible caption.</p><span class="empty-caption">WAITING FOR INPUT</span></div>
+          <div class="loading-state" id="loading-state" hidden><div class="loader"></div><strong>Reading the signal</strong><span>Checking the information available for this claim…</span></div>
+          <div class="error-state" id="error-state" hidden><span class="error-symbol">!</span><div><strong>Analysis paused</strong><p id="error-message"></p></div></div>
+          <div class="analysis-result" id="analysis-result" hidden>
+            <div class="verdict-row"><div class="verdict-icon" id="verdict-icon">?</div><div class="verdict-copy"><span class="section-kicker">FINAL CLAIM CHECK</span><h3 id="verdict-label">Possibly misleading</h3><span id="verdict-note">Based on comparison with retrieved source text.</span></div><div class="confidence"><b id="confidence-value">—</b><small>SOURCE MATCH</small></div></div>
+            <div class="confidence-meter"><span id="confidence-meter-fill"></span></div>
+            <div class="probability-block"><div class="subhead"><span>TEXT + IMAGE CLASSIFIER</span><span>CALIBRATED</span></div><div id="probability-list"></div></div>
+            <div class="alignment-box"><div class="alignment-icon">⌁</div><div><b>Text–image similarity</b><p id="similarity-note">Semantic alignment cue only.</p></div><strong id="similarity-value">—</strong></div>
+            <div class="reason-block"><div class="subhead"><span>WHY THIS RESULT</span></div><ul id="reason-list"></ul></div>
+            <div class="evidence-block" id="evidence-block" hidden><div class="subhead"><span>SOURCES</span><span id="evidence-provider"></span></div><p class="evidence-message" id="evidence-message"></p><div id="evidence-list" class="evidence-list"></div></div>
+            <p class="result-disclaimer">A source rating applies to the claim in its original context. A visible caption check covers only what the photo appears to show.</p>
+          </div>
+        </div>
+        <div class="model-card"><div class="model-card-top"><span class="model-chip">MODEL NOTE</span><span class="tiny-spark">✳</span></div><h3>Signals are not verdicts.</h3><p>CLIP compares meaning across text and image. The trained classifier adds patterns learned from labeled examples. Check reliable sources before drawing a conclusion.</p><div class="model-card-footer"><span><i></i> CLIP ViT-B/32</span><span>Fakeddit</span></div></div>
+      </aside>
+    </section>
+
+    <section class="how-section" id="about"><div class="how-title"><span class="section-kicker">A CLEARER WAY TO REVIEW</span><h2>Three signals. One careful read.</h2><p>The system organizes clues for a person to inspect; it does not replace independent fact-checking.</p></div><div class="how-grid"><article><span class="how-number">01</span><h3>Encode both sides</h3><p>ViLT answers questions about simple visible captions. CLIP measures how closely an attached photo matches the wording.</p></article><article><span class="how-number">02</span><h3>Estimate a class</h3><p>For factual claims, the app looks for a published review or compares the wording against reference passages.</p></article><article><span class="how-number">03</span><h3>Keep context in view</h3><p>Open the source and check the wording and date. The original Fakeddit classifier is available in the check menu.</p></article></div></section>
+    <footer><span class="brand footer-brand"><span class="brand-mark">✳</span><span>crosscheck<span class="brand-ai">.ai</span></span></span><span>APPLICATIONS OF AI · COURSE PROJECT</span><span>Educational prototype · Verify with trusted sources</span></footer>
+  </main>
+  <div class="image-modal" id="image-modal" hidden role="dialog" aria-modal="true" aria-label="Full size image preview">
+    <button class="image-modal-close" id="image-modal-close" type="button" aria-label="Close full size image">×</button>
+    <img id="image-modal-content" alt="Full size selected image">
+  </div>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>
