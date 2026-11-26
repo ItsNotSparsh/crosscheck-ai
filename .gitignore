@@ -45,3 +45,11 @@ data/showcase_eval/
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Personal reports, templates and unrelated course material
+/CrossCheck_AI_Final_Project_Report.docx
+/CrossCheck_AI_IEEE_Report.tex
+/Game_Theory_Applications_of_AI.pdf
+/IEEE_Conference_Template.pdf
+/IEEE_Conference_Template_1.pdf
+/PROJECT_REPORT.md
