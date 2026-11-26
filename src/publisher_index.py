@@ -11,7 +11,7 @@ import tempfile
 from urllib.parse import urlsplit
 import zipfile
 
-DATA = Path(__file__).resolve().parent / "data"
+DATA = Path(__file__).resolve().parent.parent / "data"
 INDEX = DATA / "publisher_reviews.sqlite"
 SNAPSHOT = "2026_11_25"
 DIGEST = "cedc71a2e8adb283f8b8201dabc70b79291a5f53f5f609846461be4bc6274369"

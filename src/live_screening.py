@@ -42,7 +42,7 @@ def outcome(label, basis, items=(), detail=""):
 
 @lru_cache(maxsize=1)
 def historical_reviews():
-    path = Path(__file__).resolve().parent / "data" / "averitec_archive.json"
+    path = Path(__file__).resolve().parent.parent / "data" / "averitec_archive.json"
     return json.loads(path.read_text(encoding="utf8")) if path.is_file() else []
 
 
@@ -118,7 +118,7 @@ def reviewed_match(claim):
 @lru_cache(maxsize=1)
 def passage_ranker():
     from transformers import AutoTokenizer, AutoModelForSequenceClassification
-    path = Path(__file__).resolve().parent/"artifacts/passage-ranker"
+    path = Path(__file__).resolve().parent.parent/"artifacts/passage-ranker"
     model = AutoModelForSequenceClassification.from_pretrained(path,local_files_only=True)
     return AutoTokenizer.from_pretrained(path,local_files_only=True), model.eval().to("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -220,7 +220,7 @@ def wiki_passages(claim):
 
 
 def local_passages(claim):
-    path = Path(__file__).resolve().parent / "data" / "simplewiki.sqlite"
+    path = Path(__file__).resolve().parent.parent / "data" / "simplewiki.sqlite"
     terms = tokens(claim)
     if not path.exists() or not terms:
         return []
@@ -331,7 +331,7 @@ def photo_questions(claim):
 @lru_cache(maxsize=1)
 def visual_model():
     from transformers import ViltForQuestionAnswering, ViltProcessor
-    folder = Path(__file__).resolve().parent / "artifacts" / "vilt-vqa"
+    folder = Path(__file__).resolve().parent.parent / "artifacts" / "vilt-vqa"
     device = "cuda" if torch.cuda.is_available() else "cpu"
     return (ViltProcessor.from_pretrained(folder,local_files_only=True),
             ViltForQuestionAnswering.from_pretrained(folder,local_files_only=True).to(device).eval())
@@ -340,7 +340,7 @@ def visual_model():
 @lru_cache(maxsize=1)
 def caption_model():
     from transformers import BlipForImageTextRetrieval, BlipProcessor
-    folder = Path(__file__).resolve().parent / "artifacts" / "blip-itm"
+    folder = Path(__file__).resolve().parent.parent / "artifacts" / "blip-itm"
     device = "cuda" if torch.cuda.is_available() else "cpu"
     dtype = torch.float16 if device=="cuda" else torch.float32
     return (BlipProcessor.from_pretrained(folder,local_files_only=True,use_fast=False),
@@ -352,7 +352,7 @@ def caption_model():
 def object_detector():
     from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
     model = fasterrcnn_resnet50_fpn_v2(weights=None, weights_backbone=None)
-    path = Path(__file__).resolve().parent / "artifacts" / "fasterrcnn_v2.pth"
+    path = Path(__file__).resolve().parent.parent / "artifacts" / "fasterrcnn_v2.pth"
     model.load_state_dict(torch.load(path, map_location="cpu", weights_only=True))
     weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
     return model.eval().to("cuda" if torch.cuda.is_available() else "cpu"), weights

@@ -10,7 +10,7 @@ from pathlib import Path
 from app import app
 from live_screening import UNCERTAIN
 
-DATA = Path(__file__).resolve().parent / "data" / "showcase_eval"
+DATA = Path(__file__).resolve().parent.parent / "data" / "showcase_eval"
 EXPECTED = {"SUPPORTS":"Real","REFUTES":"Fake","NOT ENOUGH INFO":UNCERTAIN}
 PHOTO = [
     ("coco_cats.png","A cat is lying on a sofa","Real"),

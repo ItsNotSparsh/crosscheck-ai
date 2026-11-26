@@ -53,3 +53,6 @@ desktop.ini
 /IEEE_Conference_Template.pdf
 /IEEE_Conference_Template_1.pdf
 /PROJECT_REPORT.md
+
+# Python package cache
+src/__pycache__/

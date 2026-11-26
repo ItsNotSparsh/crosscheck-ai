@@ -14,7 +14,7 @@ from evidence_search import retrieve_evidence
 from evidence_verification import assess_claim
 from live_screening import check_news, check_photo, photo_questions, INFERENCE_LOCK
 
-ROOT=Path(__file__).resolve().parent
+ROOT=Path(__file__).resolve().parent.parent
 ARTIFACT=ROOT/"artifacts"/"clip_fakeddit_classifier.joblib"
 LABELS={0:"Fake",1:"Real",2:"Possibly misleading / uncertain"}
 # Conservative disagreement gate: a weak Fake prediction should not overrule
@@ -22,7 +22,7 @@ LABELS={0:"Fake",1:"Real",2:"Possibly misleading / uncertain"}
 FAKE_ALIGNMENT_ABSTAIN_CONFIDENCE=.65
 FAKE_ALIGNMENT_SIMILARITY=.28
 DEVICE="cuda" if torch.cuda.is_available() else "cpu"
-app=Flask(__name__)
+app=Flask(__name__, template_folder=str(ROOT/"templates"), static_folder=str(ROOT/"static"))
 app.config["MAX_CONTENT_LENGTH"]=13*1024*1024
 warnings.simplefilter("error", Image.DecompressionBombWarning)
 _clip=None

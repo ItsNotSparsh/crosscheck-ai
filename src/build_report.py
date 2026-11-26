@@ -7,10 +7,10 @@ from docx.oxml.ns import qn
 from pathlib import Path
 import json
 
-OUT=Path(__file__).parent/'CrossCheck_AI_Final_Project_Report.docx'
-EVAL=Path(__file__).parent/'artifacts'/'evaluation.json'
-TRAIN_TSV=Path(__file__).parent/'data'/'sample_train.tsv'
-TEST_TSV=Path(__file__).parent/'data'/'sample_test.tsv'
+OUT=Path(__file__).resolve().parent.parent/'CrossCheck_AI_Final_Project_Report.docx'
+EVAL=Path(__file__).resolve().parent.parent/'artifacts'/'evaluation.json'
+TRAIN_TSV=Path(__file__).resolve().parent.parent/'data'/'sample_train.tsv'
+TEST_TSV=Path(__file__).resolve().parent.parent/'data'/'sample_test.tsv'
 METRICS=json.loads(EVAL.read_text(encoding='utf-8')) if EVAL.exists() else {}
 def row_count(path):
     return max(0, sum(1 for _ in path.open(encoding='utf-8'))-1) if path.exists() else 0
@@ -72,7 +72,7 @@ d.add_paragraph('The encoder is openai/clip-vit-base-patch32, a pretrained dual-
 d.add_paragraph('The three-way decision does not treat a low similarity score as evidence that a claim is false. Similarity only indicates whether image content and claim wording appear semantically related. A matching image can still be old or miscaptioned, and a valid claim can use an illustrative image.')
 d.add_heading('6. Data preparation and run instructions',1)
 d.add_paragraph('The prepared parquet mirror and trained model are included in the project workspace. To reproduce the sample data and run the application, use:')
-for cmd in ['python prepare_data.py data\\fakeddit_train.parquet data\\sample_train.tsv data\\images --split train --limit 6000','python prepare_data.py data\\fakeddit_train.parquet data\\sample_test.tsv data\\images --split test --limit 1500','python train.py --train data\\sample_train.tsv --test data\\sample_test.tsv --images data\\images --labels 6-way --limit 6000 --batch-size 16','python app.py  # then open http://127.0.0.1:8501']:
+for cmd in ['python src/prepare_data.py data\\fakeddit_train.parquet data\\sample_train.tsv data\\images --split train --limit 6000','python src/prepare_data.py data\\fakeddit_train.parquet data\\sample_test.tsv data\\images --split test --limit 1500','python src/train.py --train data\\sample_train.tsv --test data\\sample_test.tsv --images data\\images --labels 6-way --limit 6000 --batch-size 16','python src/app.py  # then open http://127.0.0.1:8501']:
     p=d.add_paragraph(); p.paragraph_format.left_indent=Inches(.25); run=p.add_run(cmd); run.font.name='Consolas'; run.font.size=Pt(9)
 d.add_paragraph('The CLIP model is downloaded to the local Hugging Face cache. Training produces artifacts/clip_fakeddit_classifier.joblib and artifacts/evaluation.json. Optional evidence search queries DDGS, Google News RSS, and Wikipedia in parallel under a short overall deadline. Search-provider errors do not prevent the classifier from returning its analysis.')
 d.add_heading('7. Evaluation plan',1)

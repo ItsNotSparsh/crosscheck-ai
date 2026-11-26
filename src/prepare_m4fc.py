@@ -16,7 +16,7 @@ import pandas as pd
 import requests
 from PIL import Image, UnidentifiedImageError
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 SOURCE = ROOT / "data" / "M4FC.json"
 OUT = ROOT / "data" / "m4fc"
 IMAGES = OUT / "images"

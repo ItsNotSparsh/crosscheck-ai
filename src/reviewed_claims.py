@@ -11,7 +11,7 @@ from urllib.parse import urljoin, urlsplit
 
 import requests
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parent.parent
 INDEX = ROOT / "data" / "published_reviews.json"
 HEADERS = {"User-Agent": "CrossCheckAI/1.1 (educational claim review app)"}
 _refresh_lock = Lock()

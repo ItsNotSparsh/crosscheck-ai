@@ -8,7 +8,7 @@ import tempfile
 import pyarrow.parquet as pq
 import requests
 
-DATA = Path(__file__).resolve().parent / "data"
+DATA = Path(__file__).resolve().parent.parent / "data"
 DB = DATA / "simplewiki.sqlite"
 SNAPSHOT = "https://huggingface.co/datasets/wikimedia/wikipedia/resolve/main/20231101.simple/train-00000-of-00001.parquet"
 SHA256 = "31bded16768a47c286becd292079122f5d7d4397a17b87d4250a00ccd581e6f0"

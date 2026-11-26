@@ -14,13 +14,13 @@ FILES = ["config.json","preprocessor_config.json","tokenizer.json","tokenizer_co
 def main():
     import torch
     from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights
-    detector = Path(__file__).resolve().parent / "artifacts" / "fasterrcnn_v2.pth"
+    detector = Path(__file__).resolve().parent.parent / "artifacts" / "fasterrcnn_v2.pth"
     detector.parent.mkdir(exist_ok=True)
     if not detector.exists():
         torch.hub.download_url_to_file(FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.url,
                                        str(detector), hash_prefix="dd69338a")
     for folder,(repo,rev,cap) in MODELS.items():
-        path=Path(__file__).resolve().parent/"artifacts"/folder
+        path=Path(__file__).resolve().parent.parent/"artifacts"/folder
         path.mkdir(exist_ok=True)
         files = [n for n in FILES if n not in {"preprocessor_config.json","pytorch_model.bin"}]+["model.safetensors"] if folder=="passage-ranker" else FILES
         for name in files:
