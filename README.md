@@ -1,15 +1,15 @@
-# CrossCheck AI — Multimodal Fake News Screening
+# CrossCheck AI — checking claims and photo captions
 
-An Applications of AI course project that screens a social-media claim together with its associated image. It uses pretrained CLIP ViT-B/32 embeddings and a calibrated supervised classifier trained on Fakeddit. The output is **Fake**, **Real**, or **Possibly misleading / uncertain**. It is an educational signal for human review, not a fact-check verdict.
+Enter a claim in the Flask app and choose Automatic. Factual claims can be text-only. For a visible caption, attach a JPG, PNG or WEBP. Select Visible caption explicitly for longer descriptions. Select Original Fakeddit classifier to reproduce the earlier dataset-based workflow.
 
-## Project features
+## How the current project works
 
-- Custom responsive HTML/CSS/JavaScript interface served by Flask (no Streamlit).
-- CLIP text and image encoders with a lightweight supervised fusion classifier.
-- Probability calibration and a confidence threshold selected from a held-out slice of training data; the official test split is kept separate for final evaluation.
-- External search and a pretrained NLI model compare retrieved text with the claim on every analysis. The checkbox controls whether clickable source links are shown; it does not disable the source check.
-- Text-image semantic similarity, class scores, explanatory notes, and source links to inspect.
-- Image size/type validation and inference on CUDA when available.
+- **Public claims.** CrossCheck searches publisher reviews and a local archive of 397,396 original publisher review records plus 3,068 AVeriTeC training records for exact claims and closely matching paraphrases. It preserves numeric qualifications and checks entailment in both directions for paraphrases. The archive contains dated, labeled examples for retrieval. The review history refreshes in the background. Open the linked citation to inspect its scope.
+- **Background facts.** The app checks explicitly worded relationships against Wikidata and retrieves passages from live English Wikipedia and from 241,787 locally indexed Simple English Wikipedia articles dated November 2023. A MiniLM passage reranker selects relevant excerpts before DeBERTa checks support or contradiction. Named-entity confusion, dated records and multi-step claims remain sources of error.
+- **Current events.** For recognized event wording, the app searches for dated publisher articles and requires corroboration from two domains. A dedicated lookup uses recent statements from the Indian Prime Minister's Office for explicit office-holder claims. Unavailable sources, missing media identity or inconclusive evidence can yield Possibly misleading / uncertain. Extra related links are optional.
+- **Photos.** Faster R-CNN ResNet-50 FPN V2 checks presence claims about common objects. ViLT answers visual questions and BLIP assesses caption fit. A claim about a person holding office or about where a photo was taken requires external evidence. The photo mode checks visible content only.
+
+**Linked articles.** Choose **Compare with a news article**, paste a direct supported publisher URL and enter the claim. Read the dated passage alongside the result. Real and Fake in this mode describe agreement with that article. Automatic mode continues to fetch its own sources.
 
 ## Run the app (Windows)
 
@@ -34,7 +34,7 @@ pip install -r requirements.txt
 
 Install a CUDA-enabled PyTorch build matching your driver if `torch.cuda.is_available()` returns false. Model card: [openai/clip-vit-base-patch32](https://huggingface.co/openai/clip-vit-base-patch32).
 
-## Dataset and training
+## Original classifier training
 
 The project uses Fakeddit, the paired social-media text/image dataset identified in the milestone report. A 73.9 MB parquet mirror is in `data/fakeddit_train.parquet`; the full image archive is over 100 GB, so `prepare_data.py` downloads only selected image URLs and preserves the dataset's `general_train` and `general_test` partitions.
 
@@ -50,17 +50,21 @@ Training keeps CLIP frozen and fits the classifier over embeddings. It does not 
 
 Fakeddit six-way labels are mapped for this course task as follows: 0 True → Real; 2 False Connection and 4 Manipulated → Fake; 1 Satire, 3 Imposter, and 5 Misleading → Possibly misleading / uncertain. This is a project policy; Fakeddit labels are platform-specific and do not define universal truth.
 
-## Evaluation
+## Original Fakeddit evaluation
 
 The test split is not used to select the confidence threshold. Training examples are split again for probability calibration and threshold selection. Final test metrics are saved in `artifacts/evaluation.json`; run training to regenerate them for your own subset. Report accuracy, macro-F1, per-class results, and the confusion matrix as a dataset-specific measurement, not general-world accuracy.
 
-## Interpretation and limitations
+## Reproduce the showcase checks
 
-- CLIP cosine similarity estimates semantic alignment. It does not establish truth, image provenance, recency, manipulation, or whether a visual is from the claimed event.
-- The classifier learns Fakeddit patterns and inherits its noisy, dated, Reddit-derived labels. Its score is not a probability that a real-world claim is objectively true.
-- The final class uses retrieved-text entailment: strong source support maps to **Real**, strong refutation maps to **Fake**, and unavailable, weak, or mixed evidence maps to **Possibly misleading / uncertain**. The Fakeddit classifier remains visible as a separate text-image signal; its percentage is not a probability that the claim is true.
-- Search providers can intermittently block or time out. The app tries fallbacks and returns **Possibly misleading / uncertain** if no decisive source comparison is available. Search results and snippets are leads, not verification.
-- Open and assess trusted, preferably primary, sources before making a conclusion. Do not use this prototype for high-stakes decisions or to label individuals.
+On the 32 previously reported AVeriTeC cases the updated app matched 20 labels, up from 15. The three previous false alarms on ambiguous claims were resolved. Of 16 claims labeled true or false, four received the correct verdict and twelve received Uncertain.
+
+On a separate randomly sampled set of 40 AVeriTeC claims (seed 78551, excluding all earlier samples and exact matches to the local AVeriTeC training archive), the app gave four correct verdicts and abstained 36 times. The previous release gave five correct verdicts, one incorrect verdict and 34 abstentions. Both releases checked identical claim text without a supplied article, date, original fact-check URL or expected label. Some claims may already have published reviews in the independent publisher index. Broad automatic news coverage is poor. Reproduce the revised run with `python evaluate_showcase.py --release`. The before-and-after predictions and cited passages are under `data/showcase_eval`. Live sources may change.
+
+Six development captions scored 5/6. On twelve previously used Oxford pet test photos the updated detector identified eleven labeled animals, up from nine. On 24 separately sampled Oxford test photos it identified all 24, up from 21. Those 24 captions all described the labeled species. This measures object recognition and does not evaluate false captions or relationships.
+
+To rebuild the assets, run `python download_visual_models.py`, `python build_reference_index.py` and `python publisher_index.py data/publisher_snapshot.zip`. The publisher-index builder verifies the archived release checksum. Existing CLIP and DeBERTa models load from the Hugging Face cache. Install matching PyTorch and TorchVision builds for your GPU.
+
+Publisher metadata is adapted from the [Martino Mensio ClaimReview snapshot of November 25, 2026](https://github.com/MartinoMensio/claimreview-data/releases/tag/2026_11_25), distributed under [CC BY-NC-SA 4.0](https://creativecommons.org/licenses/by-nc-sa/4.0/). The derived index preserves original claims, ratings, publication dates and publisher URLs. Other evidence and evaluation sources include [AVeriTeC](https://fever.ai/dataset/averitec.html), the [Wikimedia snapshot](https://huggingface.co/datasets/wikimedia/wikipedia), [Wikidata](https://www.wikidata.org/), and [Oxford-IIIT Pet](https://www.robots.ox.ac.uk/~vgg/data/pets/).
 
 ## Course objectives addressed
 

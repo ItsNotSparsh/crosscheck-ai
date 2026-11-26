@@ -102,5 +102,28 @@ def read_index():
     return json.loads(INDEX.read_text(encoding="utf-8"))["reviews"]
 
 
+def search_reviews(query):
+    """Read dated English ClaimReview entries returned by public Fact Check Explorer."""
+    try:
+        response = requests.get("https://toolbox.google.com/factcheck/api/search",
+                                params={"query":query}, headers=HEADERS, timeout=(3,5))
+        response.raise_for_status()
+        payload = json.loads(response.text.removeprefix(")]}'").strip())
+        rows = []
+        for entry in payload[0][1][:25]:
+            document = entry[0]
+            if len(document)<4 or not isinstance(document[0],str):
+                continue
+            claim, reviews = document[0][:2_000], document[3] or []
+            for review in reviews:
+                if len(review)<7 or review[6] != "en" or not isinstance(review[2],(float,int)) or not isinstance(review[3],str) or not str(review[1]).startswith("https://"):
+                    continue
+                date = datetime.fromtimestamp(review[2], timezone.utc).date().isoformat()
+                rows.append(dict(claim=claim, url=review[1], rating=review[3],date=date))
+        return rows
+    except (requests.RequestException, ValueError, TypeError, KeyError, IndexError, AttributeError, OSError):
+        return []
+
+
 if __name__ == "__main__":
     refresh()

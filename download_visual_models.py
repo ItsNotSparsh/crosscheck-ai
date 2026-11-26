@@ -3,6 +3,7 @@ from pathlib import Path
 import requests
 
 MODELS = {
+    "passage-ranker": ("cross-encoder/ms-marco-MiniLM-L6-v2","233902d25c440f23af6f7d6e94d2946bac0bee0a",100_000_000),
     "vilt-vqa": ("dandelin/vilt-b32-finetuned-vqa","d0a1f6ab88522427a7ae76ceb6e1e1e7b68a1d08",600_000_000),
     "blip-itm": ("Salesforce/blip-itm-base-coco","bed8ad38cb2d04a5a4bdf2d071b3c3c0a4aa724c",1_100_000_000),
 }
@@ -11,10 +12,18 @@ FILES = ["config.json","preprocessor_config.json","tokenizer.json","tokenizer_co
 
 
 def main():
+    import torch
+    from torchvision.models.detection import FasterRCNN_ResNet50_FPN_V2_Weights
+    detector = Path(__file__).resolve().parent / "artifacts" / "fasterrcnn_v2.pth"
+    detector.parent.mkdir(exist_ok=True)
+    if not detector.exists():
+        torch.hub.download_url_to_file(FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT.url,
+                                       str(detector), hash_prefix="dd69338a")
     for folder,(repo,rev,cap) in MODELS.items():
         path=Path(__file__).resolve().parent/"artifacts"/folder
         path.mkdir(exist_ok=True)
-        for name in FILES:
+        files = [n for n in FILES if n not in {"preprocessor_config.json","pytorch_model.bin"}]+["model.safetensors"] if folder=="passage-ranker" else FILES
+        for name in files:
             dst=path/name
             if dst.is_file():
                 cap-=dst.stat().st_size

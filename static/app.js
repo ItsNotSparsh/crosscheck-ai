@@ -13,7 +13,11 @@ document.querySelector('#check-mode').addEventListener('change', event => {
   const mode=event.target.value;
   fileInput.required=['photo','dataset'].includes(mode);
   document.querySelector('#image-requirement').textContent=fileInput.required?'Required':'Optional for factual claims';
-  document.querySelector('.evidence-option').hidden=mode==='photo';
+  document.querySelector('.evidence-option').hidden=['photo','article'].includes(mode);
+  document.querySelector('#article-source').hidden=mode!=='article';
+  const articleUrl=document.querySelector('#article-url');
+  articleUrl.disabled=mode!=='article';
+  articleUrl.required=mode==='article';
 });
 
 function setFile(file){
@@ -47,7 +51,7 @@ function renderResult(data){
   clearError();document.querySelector('#empty-state').hidden=true;document.querySelector('#analysis-result').hidden=false;document.querySelector('#result-title').textContent='Your screening result';
   document.querySelector('.probability-block').hidden=!data.probabilities.length;
   document.querySelector('.alignment-box').hidden=data.similarity==null;
-  document.querySelector('.verdict-copy .section-kicker').textContent=({photo:'VISIBLE CAPTION CHECK',news:'WRITTEN CLAIM CHECK',dataset:'FAKEDDIT SCREENING'})[data.mode];
+  document.querySelector('.verdict-copy .section-kicker').textContent=({photo:'VISIBLE CAPTION CHECK',news:'WRITTEN CLAIM CHECK',dataset:'FAKEDDIT SCREENING',article:'AGREEMENT WITH LINKED ARTICLE'})[data.mode];
   const label=data.label;const verdict=document.querySelector('#verdict-label');const icon=document.querySelector('#verdict-icon');
   verdict.textContent=label;icon.className='verdict-icon';icon.textContent=label==='Fake'?'!':label==='Real'?'✓':'?';if(label==='Fake')icon.classList.add('fake');else if(label==='Real')icon.classList.add('real');
   document.querySelector('#verdict-note').textContent=data.decision_basis||'Source comparison required';

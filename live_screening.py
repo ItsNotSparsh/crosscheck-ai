@@ -1,20 +1,25 @@
 """Screen public claims against referenced records, and captions against the photo."""
 import html
+import json
 import re
 import sqlite3
 from datetime import datetime, timezone
 from functools import lru_cache
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from threading import RLock
 from urllib.parse import quote, urlparse
+from html.parser import HTMLParser
 
 import requests
 import torch
 
 from evidence_verification import _load
-from reviewed_claims import HEADERS, page, read_index, refresh_if_stale
+from reviewed_claims import HEADERS, page, read_index, refresh_if_stale, search_reviews
+from publisher_index import candidates as indexed_reviews
 
 UNCERTAIN = "Possibly misleading / uncertain"
+QUALIFIERS = re.compile(r"\b(?:some|all|every|always|never|only|most|prolonged|healthy|sometimes|allegedly|possibly|if|unless|except)\b",re.I)
 INFERENCE_LOCK = RLock()
 STOP = set("a an and are as at be by did do does for from has have in is it of on or that the this to was were with not".split())
 TIME_OR_MEDIA = re.compile(r"\b(today|yesterday|tomorrow|currently|latest|now|this (?:week|month|year)|breaking|president|prime minister|photo|footage|pictured|video|image|spotted|sighting)\b", re.I)
@@ -26,7 +31,7 @@ def tokens(text):
 
 def normalized(text):
     # Preserve numbers, negation and internal punctuation in quoted claims.
-    return " ".join(text.casefold().replace("’", "'").split()).strip(' .“”"')
+    return " ".join(text.casefold().translate(str.maketrans({"’":"'","‘":"'","“":'"',"”":'"'})).split()).strip(' ."')
 
 
 def outcome(label, basis, items=(), detail=""):
@@ -35,9 +40,27 @@ def outcome(label, basis, items=(), detail=""):
             "evidence_check": None, "probabilities": [], "similarity": None}
 
 
+@lru_cache(maxsize=1)
+def historical_reviews():
+    path = Path(__file__).resolve().parent / "data" / "averitec_archive.json"
+    return json.loads(path.read_text(encoding="utf8")) if path.is_file() else []
+
+
 def reviewed_match(claim):
     refresh_if_stale()
-    records = read_index()
+    terms = tokens(claim)
+    local = read_index() + historical_reviews() + indexed_reviews(terms)
+    queries = [claim]
+    if len(terms)>5 and not any(normalized(r["claim"])==normalized(claim) for r in local):
+        names = re.findall(r"\b[A-Z][a-zA-Z'-]{2,}\b",claim)
+        names = [n for n in names if n.lower() in terms and n.lower() not in {"there","since","while","according"}]
+        anchors = sorted(terms-{n.lower() for n in names},key=lambda w:(-len(w),w))
+        short = " ".join(dict.fromkeys(names[:3]+anchors[:2]))
+        if short and short!=claim:
+            queries.append(short)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        records = local + [r for result in pool.map(search_reviews,queries) for r in result]
+    records = list({(r["url"],r["rating"],normalized(r["claim"]),r["date"]):r for r in records}.values())
     rows = [r for r in records if normalized(r["claim"]) == normalized(claim)]
     exact = bool(rows)
     if not rows:
@@ -47,26 +70,68 @@ def reviewed_match(claim):
         numbers = re.findall(r"\d+(?:[.,]\d+)*%?",claim)
         ranked = []
         for record in records:
+            if set(QUALIFIERS.findall(claim.casefold())) != set(QUALIFIERS.findall(record["claim"].casefold())):
+                continue
             other = tokens(record["claim"])
             similarity = len(terms & other) / max(1,len(terms | other))
             if similarity >= .30 and len(terms & other)>=3 and sorted(numbers)==sorted(re.findall(r"\d+(?:[.,]\d+)*%?",record["claim"])):
                 ranked.append((similarity,record))
-        candidates = [r for _,r in sorted(ranked,key=lambda item:-item[0])[:3]]
+        candidates = [r for _,r in sorted(ranked,key=lambda item:-item[0])[:10]]
         if candidates:
             for record, (support, _) in zip(candidates, compare(claim,[r["claim"] for r in candidates])):
                 if support >= .97 and compare(record["claim"],[claim])[0][0] >= .97:
                     rows.append(record)
     if not rows:
         return None
-    ratings = {r["rating"].lower().strip() for r in rows}
-    label = "Real" if ratings == {"true"} else "Fake" if ratings == {"false"} else UNCERTAIN
-    if re.search(r"\b(this|these|today|yesterday|now|currently|footage|video|photo)\b",claim,re.I) or (
-            TIME_OR_MEDIA.search(claim) and not re.search(r"\b(?:19|20)\d{2}\b", claim)):
+    def verdict(rating):
+        head = re.split(r"[.:!\n]|\s+[–—]",rating.casefold().strip(),maxsplit=1)[0].strip()
+        if head in {"true","correct","accurate","supported","verdadero"}:
+            return "Real"
+        if head in {"false","incorrect","inaccurate","refuted","falso","pants on fire","pants-fire","fabricated","fake"}:
+            return "Fake"
+        return UNCERTAIN
+    labels = set()
+    for r in rows:
+        rating = r["rating"]
+        mapped = verdict(rating)
+        # Some publishers write a short explanation in their rating field.
+        # A qualified verdict or an absence of evidence must retain its meaning.
+        if (mapped==UNCERTAIN and len(tokens(rating))>=6 and not re.search(
+            r"\b(mostly|partly|partially|mixed|half|cherry|misleading|unproven|unclear|uncertain|unverified|evidence|exaggerated|context)\b",
+            rating,re.I)):
+            if relevant_passages(claim,[{"snippet":rating}]):
+                support,refute = compare(claim,[rating])[0]
+                if support>=.97 or refute>=.98:
+                    mapped = "Real" if support>refute else "Fake"
+        labels.add(mapped)
+    label = next(iter(labels)) if len(labels)==1 else UNCERTAIN
+    relative = re.search(r"\b(today|yesterday|tomorrow|now|currently|recently|last (?:week|month|year)|this (?:week|month|year)|ago|these|this (?:image|photo|clip|video)|footage|video|photo)\b",claim,re.I)
+    current_role = re.search(r"\b(?:is|are|serves? as)\b.{0,60}\b(?:president|director|head|officer|minister|governor|mayor|CEO|leader)\b",claim,re.I)
+    if relative or (current_role and not re.search(r"\b(?:19|20)\d{2}\b",claim)):
         label = UNCERTAIN
-    items = [dict(url=r["url"], title=f'Publisher rating: {r["rating"]}', snippet=r["claim"],
+    items = [dict(url=r["url"], title=f'{r.get("archive","Publisher")} rating: {r["rating"]}', snippet=r["claim"],
                   source=urlparse(r["url"]).hostname, date=r["date"]) for r in rows]
     return outcome(label, "Published review of the same wording" if exact else "Published review of a closely matching claim", items,
                    "The rating applies to the original claim at the linked date. Image identity and later events require separate evidence.")
+
+
+@lru_cache(maxsize=1)
+def passage_ranker():
+    from transformers import AutoTokenizer, AutoModelForSequenceClassification
+    path = Path(__file__).resolve().parent/"artifacts/passage-ranker"
+    model = AutoModelForSequenceClassification.from_pretrained(path,local_files_only=True)
+    return AutoTokenizer.from_pretrained(path,local_files_only=True), model.eval().to("cuda" if torch.cuda.is_available() else "cpu")
+
+
+def relevant_passages(claim, items):
+    if not items:
+        return []
+    with INFERENCE_LOCK, torch.inference_mode():
+        tokenizer, model = passage_ranker()
+        batch = tokenizer([claim]*len(items), [i["snippet"] for i in items],
+                          padding=True,truncation=True,max_length=384,return_tensors="pt").to(model.device)
+        logits = model(**batch).logits.flatten().tolist()
+    return [i for score,i in sorted(zip(logits,items),key=lambda pair:-pair[0]) if score>0][:6]
 
 
 def official_office(claim):
@@ -93,19 +158,55 @@ def official_office(claim):
     return None
 
 
+class WikiParagraphs(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.current = None
+        self.rows = []
+
+    def handle_starttag(self,tag,attrs):
+        if tag=="p":
+            self.current=[]
+
+    def handle_data(self,data):
+        if self.current is not None:
+            self.current.append(data)
+
+    def handle_endtag(self,tag):
+        if tag=="p" and self.current is not None:
+            self.rows.append(re.sub(r"\[\d+\]","","".join(self.current)))
+            self.current=None
+
+
 def wiki_passages(claim):
-    api = "https://en.wikipedia.org/w/api.php"
-    params = dict(action="query", format="json", generator="search", gsrsearch=claim,
-                  gsrlimit=4, prop="extracts", exintro=1, explaintext=1, exsentences=6, exlimit=4)
-    response = requests.get(api, params=params, headers=HEADERS, timeout=(4, 7))
+    subject = re.split(r"\b(?:is|was|are|were|has|had|starred|features|died)\b",claim,1,flags=re.I)[0].strip()
+    response = requests.get("https://api.wikimedia.org/core/v1/wikipedia/en/search/page",
+                            params={"q":subject or claim,"limit":4},headers=HEADERS,timeout=(3,5))
     response.raise_for_status()
+    def passages(candidate):
+        try:
+            url = "https://api.wikimedia.org/core/v1/wikipedia/en/page/" + quote(candidate["key"],safe="") + "/html"
+            with requests.get(url,headers=HEADERS,timeout=(3,5),stream=True) as r:
+                r.raise_for_status()
+                buf = bytearray()
+                for chunk in r.iter_content(65536):
+                    buf.extend(chunk)
+                    if len(buf)>=2_000_000:
+                        break
+            parser=WikiParagraphs()
+            parser.feed(buf.decode("utf8","replace"))
+            return dict(title=candidate["title"],extract="\n".join(parser.rows))
+        except (requests.RequestException, ValueError):
+            return {}
     rows = []
     terms = tokens(claim)
-    for obj in response.json().get("query", {}).get("pages", {}).values():
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        pages = list(pool.map(passages,response.json().get("pages",[])[:3]))
+    for obj in filter(None,pages):
         title = obj["title"]
         if "disambiguation" in title.casefold():
             continue
-        for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z])", obj.get("extract",""))[:7]:
+        for sentence in re.split(r"(?<=[.!?])\s+(?=[A-Z])|\n+", obj.get("extract","")):
             sentence = " ".join(sentence.split())
             if not 25 <= len(sentence) <= 800:
                 continue
@@ -115,7 +216,7 @@ def wiki_passages(claim):
             rows.append((overlap, dict(title=title, snippet=sentence,
                 source="Wikipedia", url="https://en.wikipedia.org/wiki/" + quote(title.replace(" ", "_")))))
     rows.sort(key=lambda pair: -pair[0])
-    return [item for _, item in rows[:8]]
+    return [item for _, item in rows[:14]]
 
 
 def local_passages(claim):
@@ -153,19 +254,27 @@ def compare(claim, passages):
 
 
 def check_news(claim):
-    reviewed = reviewed_match(claim)
-    if reviewed:
-        return reviewed
     try:
         office = official_office(claim)
         if office:
             return office
     except (requests.RequestException, ValueError):
         pass
+    from structured_facts import check as check_record
+    structured = check_record(claim)
+    if structured:
+        return structured
+    reviewed = reviewed_match(claim)
+    if reviewed:
+        return reviewed
     recent = TIME_OR_MEDIA.search(claim) or re.search(r"\b(this|these|here|last night|announc(?:es|ed)|resign(?:s|ed)|elected|minister|CEO|will|just|killed|arrested|explosion|earthquake|outbreak|launched|reported|20(?:2[4-9]|[3-9]\d))\b",claim,re.I)
-    if recent:
-        from news_sources import screen_recent
-        return screen_recent(claim)
+    from news_sources import relevant_headlines, screen_recent
+    feed_urls = relevant_headlines(claim)
+    years = [int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b",claim)]
+    historical = years and max(years)<datetime.now(timezone.utc).year-1 and not re.search(
+        r"\b(today|now|currently|latest|this|these|video|photo|footage|since|still)\b",claim,re.I)
+    if (recent and not historical) or feed_urls:
+        return screen_recent(claim, feed_urls)
     local = local_passages(claim)
     try:
         live = wiki_passages(claim)
@@ -174,15 +283,22 @@ def check_news(claim):
     items = local + live
     if not items:
         return outcome(UNCERTAIN, "No relevant reference passage found.")
-    scores = compare(claim, [i["snippet"] for i in items])
+    passages = relevant_passages(claim,items)
+    if not passages:
+        return outcome(UNCERTAIN,"No passage directly addresses the claim.",items[:2])
+    scores = compare(claim, [i["snippet"] for i in passages])
     supported, contradicted = [], []
-    for item, (support, refute) in zip(items, scores):
+    for item, (support, refute) in zip(passages, scores):
+        if re.search(r"\b(allegedly|unconfirmed|rumou?rs?|speculat(?:ed|ion)|unsubstantiated|hoax|falsely claimed)\b",item["snippet"],re.I):
+            continue
         subject = re.split(r"\b(?:is|was|are|were|has|have|had|can|did|does)\b",claim,1,flags=re.I)[0]
-        if len(subject)<len(claim) and tokens(subject) and not tokens(subject) & tokens(item["snippet"]):
+        subject_terms = tokens(subject)
+        available = tokens(item["title"]) | tokens(item["snippet"])
+        if len(subject)<len(claim) and subject_terms and len(subject_terms & available)/len(subject_terms)<.75:
             continue
         if support >= .95:
             supported.append(item)
-        if refute >= .97:
+        if refute >= .97 and len(tokens(claim) & tokens(item["snippet"])) >= .4*len(tokens(claim)):
             contradicted.append(item)
     if bool(supported) != bool(contradicted):
         hits = supported or contradicted
@@ -232,6 +348,16 @@ def caption_model():
                 torch_dtype=dtype).to(device).eval())
 
 
+@lru_cache(maxsize=1)
+def object_detector():
+    from torchvision.models.detection import fasterrcnn_resnet50_fpn_v2, FasterRCNN_ResNet50_FPN_V2_Weights
+    model = fasterrcnn_resnet50_fpn_v2(weights=None, weights_backbone=None)
+    path = Path(__file__).resolve().parent / "artifacts" / "fasterrcnn_v2.pth"
+    model.load_state_dict(torch.load(path, map_location="cpu", weights_only=True))
+    weights = FasterRCNN_ResNet50_FPN_V2_Weights.DEFAULT
+    return model.eval().to("cuda" if torch.cuda.is_available() else "cpu"), weights
+
+
 def check_photo(claim, image):
     questions = photo_questions(claim)
     if not questions:
@@ -243,6 +369,16 @@ def check_photo(claim, image):
         questions=[f"{m[2].capitalize()} {m[1]} {m[3]}?"]
     answers = []
     with INFERENCE_LOCK, torch.inference_mode():
+        simple = re.fullmatch(rf"Is there a ({SUBJECT}) in the picture\?", questions[0])
+        if simple and len(questions) == 1:
+            detector, weights = object_detector()
+            name = {"sofa":"couch"}.get(simple[1], simple[1])
+            detection = detector([weights.transforms()(image).to(next(detector.parameters()).device)])[0]
+            categories = weights.meta["categories"]
+            if any(categories[idx] == name and score >= .75 for idx, score in
+                   zip(detection["labels"].tolist(), detection["scores"].tolist())):
+                return outcome("Real", "The named object was detected in the photo.",
+                               detail=f"The detector located a {name}. This check covers its visible presence.")
         processor, model = visual_model()
         for question in questions:
             batch = processor(image, question, return_tensors="pt").to(next(model.parameters()).device)

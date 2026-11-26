@@ -57,12 +57,18 @@ def index():
 
 @app.get("/api/health")
 def health():
-    return jsonify({"ok":True,"device":DEVICE,"model_ready":ARTIFACT.exists()})
+    assets = {"original_classifier": ARTIFACT, "photo_questions": ROOT/"artifacts/vilt-vqa/pytorch_model.bin",
+              "caption_matching": ROOT/"artifacts/blip-itm/pytorch_model.bin",
+              "object_detection": ROOT/"artifacts/fasterrcnn_v2.pth", "references": ROOT/"data/simplewiki.sqlite",
+              "publisher_index": ROOT/"data/publisher_reviews.sqlite", "passage_ranker": ROOT/"artifacts/passage-ranker/model.safetensors",
+              "review_archive": ROOT/"data/averitec_archive.json"}
+    available = {name:path.is_file() for name,path in assets.items()}
+    return jsonify({"ok":True,"device":DEVICE,"model_ready":all(available.values()),"local_assets":available})
 
 @app.post("/api/analyze")
 def analyze():
     mode=request.form.get("mode","auto")
-    if mode not in {"auto","news","photo","dataset"}:
+    if mode not in {"auto","news","photo","dataset","article"}:
         return jsonify({"error":"Unknown analysis mode."}),400
     claim=request.form.get("text","").strip()
     uploaded=request.files.get("image")
@@ -70,6 +76,15 @@ def analyze():
         return jsonify({"error":"Enter the post or claim text (at least 3 characters)."}),400
     if len(claim)>1000:
         return jsonify({"error":"Keep the claim under 1,001 characters."}),400
+    if mode=="article":
+        from news_sources import publisher
+        url=request.form.get("article_url","").strip()
+        try:
+            valid=len(url)<=2000 and publisher(url)
+        except ValueError:
+            valid=False
+        if not valid:
+            return jsonify({"error":"Enter a direct HTTPS article link from one of the listed publishers."}),400
     has_image=bool(uploaded and uploaded.filename)
     if mode=="auto":
         mode="photo" if has_image and photo_questions(claim) else "news"
@@ -92,15 +107,19 @@ def analyze():
         if mode=="photo":
             result=check_photo(claim,image)
             return jsonify({**result,"mode":"photo","evidence":None})
-        if mode=="news":
-            result=check_news(claim)
-            result["mode"]="news"
+        if mode in {"news","article"}:
+            if mode=="article":
+                from news_sources import check_article
+                result=check_article(claim,url)
+            else:
+                result=check_news(claim)
+            result["mode"]=mode
             if has_image:
                 with INFERENCE_LOCK:
                     processor,model,_=get_models()
                     _,result["similarity"]=make_features(claim,image,processor,model)
                 result["reasons"].append("The verdict covers the written claim. CLIP compares the attached image with the wording. Image date and origin remain unverified.")
-            if request.form.get("evidence")=="true":
+            if mode=="news" and request.form.get("evidence")=="true":
                 leads=retrieve_evidence(claim)
                 for item in leads["items"]:
                     if item["url"] not in {r["url"] for r in result["evidence"]["items"]}:
